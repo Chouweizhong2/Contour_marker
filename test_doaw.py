@@ -8,12 +8,9 @@ class StockDialog(QWidget):
     def __init__(self, parent=None):
         super(StockDialog, self).__init__(parent)
         self.setWindowTitle("利用QPainter绘制各种图形")
+        self.resize(1000, 600)
 
-        mainSplitter = QSplitter(Qt.Horizontal)
-        mainSplitter.setOpaqueResize(True)
-
-        frame = QFrame(mainSplitter)
-        mainLayout = QGridLayout(frame)
+        mainLayout = QGridLayout()
         #mainLayout.setMargin(10)
         mainLayout.setSpacing(6)
 
@@ -116,10 +113,10 @@ class StockDialog(QWidget):
         mainLayout.addWidget(label8,14,labelCol)
         mainLayout.addWidget(self.brushColorFrame,14,contentCol)
         mainLayout.addWidget(self.brushColorPushButton,14,3)
-        '''
+        
         mainSplitter1 = QSplitter(Qt.Horizontal)
         mainSplitter1.setOpaqueResize(True)
-
+        
         stack1 = QStackedWidget()
         stack1.setFrameStyle(QFrame.Panel|QFrame.Raised)
         self.area = PaintArea()
@@ -129,13 +126,25 @@ class StockDialog(QWidget):
         #mainLayout1.setMargin(10)
         mainLayout1.setSpacing(6)
         mainLayout1.addWidget(stack1)
+        '''
+        mainShowPart = QSplitter()
+        hwg=QWidget()
+        hwg.setLayout(mainLayout)
 
-        layout = QGridLayout(self)
-        layout.setColumnStretch(0, 10)
-        layout.setColumnStretch(0, 4)
-        layout.addWidget(mainSplitter1, 0, 0, 1, 3)
-        layout.addWidget(mainSplitter, 0, 4, 1, 1)
-        self.setLayout(layout)
+        self.area = PaintArea()
+        mainShowPart.addWidget(self.area)
+
+
+        layout = QSplitter(Qt.Horizontal)
+        #layout.setColumnStretch(0, 10)
+        #layout.setColumnStretch(0, 4)
+        #layout.addWidget(mainShowPart, 0, 0, 1, 3)
+        layout.addWidget(mainShowPart)
+        #layout.addWidget(mainSplitter, 0, 4, 1, 1)
+        layout.addWidget(hwg)
+        fin_layout = QHBoxLayout()
+        fin_layout.addWidget(layout)
+        self.setLayout(fin_layout)
 
         #信号和槽函数
         self.shapeComboBox.activated.connect(self.slotShape)
