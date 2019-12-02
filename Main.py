@@ -162,6 +162,7 @@ class MyDraw(QWidget):
         '''self.painter.begin(self)
         self.painter.drawPixmap(0, 0, self.pix)
         self.painter.end()'''
+        
         painter = QPainter()
         painter.begin(self)
         self.draw_img(painter)
