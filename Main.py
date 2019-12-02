@@ -119,13 +119,18 @@ class MainWindow(QMainWindow):
     def open_file(self):
         openfile_name, openfile_type = QFileDialog.getOpenFileName(self, '选择文件', './')
         print(openfile_name)
-        Im = cv2.imread(openfile_name)  # 通过Opencv读入一张图片
-        image_height, image_width, image_depth = Im.shape  # 获取图像的高，宽以及深度。
-        QIm = cv2.cvtColor(Im, cv2.COLOR_BGR2RGB)  # opencv读图片是BGR，qt显示要RGB，所以需要转换一下
-        QIm = QImage(QIm.data, image_width, image_height,  # 创建QImage格式的图像，并读入图像信息
+        # filename = r"C:/Users/Cjay/PycharmProjects/Contour_marker/data/Material/mc-enep.jpg"
+        cvIm = cv2.imread(openfile_name, -1)  # 通过Opencv读入一张图片
+        image_height, image_width, image_depth = cvIm.shape  # 获取图像的高，宽以及深度。
+        print(image_height, image_width)
+        # QIm = cv2.cvtColor(Im, cv2.COLOR_BGR2RGB)  # opencv读图片是BGR，qt显示要RGB，所以需要转换一下
+        QIm = QImage(cvIm.data, image_width, image_height,  # 创建QImage格式的图像，并读入图像信息
                      image_width * image_depth,
-                     QImage.Format_RGB888)
-        self.image_label.setPixmap(QPixmap.fromImage(QIm))  # 将QImage显示在之前创建的QLabel控件中
+                     QImage.Format_RGB888).rgbSwapped()
+        self.area.pix = QPixmap.fromImage(QIm)  # 将QImage显示在之前创建的QLabel控件中
+        self.area.scaled_img = self.area.pix.scaled(self.area.scaled_size)
+        self.area.repaint()
+
 
 
 class MyDraw(QWidget):
@@ -133,36 +138,79 @@ class MyDraw(QWidget):
         QWidget.__init__(self)
         #self.setupUi(self)
         self.resize(800,600)
+        '''filename = r"C:/Users/Cjay/PycharmProjects/Contour_marker/data/Material/mc-enep.jpg"
+        cvIm = cv2.imread(filename, -1)  # 通过Opencv读入一张图片
+        image_height, image_width, image_depth = cvIm.shape  # 获取图像的高，宽以及深度。
+        print(image_height, image_width)
+        # QIm = cv2.cvtColor(Im, cv2.COLOR_BGR2RGB)  # opencv读图片是BGR，qt显示要RGB，所以需要转换一下
+        QIm = QImage(cvIm.data, image_width, image_height,  # 创建QImage格式的图像，并读入图像信息
+                     image_width * image_depth,
+                     QImage.Format_RGB888).rgbSwapped()
+        self.pix = QPixmap.fromImage(QIm)
+        self.scaled_size = self.size()
+        self.scaled_img = self.pix.scaled(self.scaled_size)'''
         self.pix = QPixmap(800, 600)
         self.pix.fill(QColor(255, 255, 255))
+        self.scaled_size = self.size()
+        self.scaled_img = self.pix.scaled(self.scaled_size)
+        self.point = QPoint(0, 0)
         self.endPoint = QPoint()
         self.lastPoint = QPoint()
         self.painter = QPainter()
 
     def paintEvent(self, event):
-
-        self.painter.begin(self)
+        '''self.painter.begin(self)
         self.painter.drawPixmap(0, 0, self.pix)
-        self.painter.end()
+        self.painter.end()'''
+        painter = QPainter()
+        painter.begin(self)
+        self.draw_img(painter)
+        painter.end()
 
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.lastPoint = event.pos()
-            self.endPoint = self.lastPoint
+    def draw_img(self, painter):
+        self.scaled_img = self.pix.scaled(self.scaled_size)
+        painter.drawPixmap(self.point, self.scaled_img)
+        print(self.scaled_size)
 
-    def mouseMoveEvent(self, event):
-        if event.buttons() == Qt.LeftButton:       # 这里只能用buttons(), 因为button()在mouseMoveEvent()中无论
-            self.endPoint = event.pos()            # 按下什么键，返回的都是Qt::NoButton
-            self.painter.begin(self.pix)        # 注意这里的参数必须是self.pix，涂鸦只能在这个300*300的白板上进行
-            self.painter.setPen(QColor(0, 255, 0))
-            self.painter.drawLine(self.lastPoint, self.endPoint)
-            self.painter.end()
-            self.update()
-            self.lastPoint = self.endPoint
+    def mouseMoveEvent(self, e):  # 重写移动事件
+        if e.buttons() == Qt.MidButton:
+        #if self.left_click:
+            self._endPos = e.pos() - self._startPos
+            self.point = self.point + self._endPos
+            self._startPos = e.pos()
+            self.repaint()
 
-    def mouseReleaseEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.endPoint = event.pos()
+    def mousePressEvent(self, e):
+        if e.button() == Qt.MidButton:
+            self._startPos = e.pos()
+
+    def mouseReleaseEvent(self, e):
+        if e.button() == Qt.RightButton:
+            self.point = QPoint(0, 0)
+            self.scaled_img = self.pix.scaled(self.size())
+            self.repaint()
+
+    def wheelEvent(self, e):
+        if e.angleDelta().y() > 0:
+            # 放大图片
+            self.scaled_size = QSize(self.scaled_size.width()-15, self.scaled_size.height()-15)
+            new_w = e.x() - (self.scaled_img.width() * (e.x() - self.point.x())) / (self.scaled_img.width() + 15)
+            new_h = e.y() - (self.scaled_img.height() * (e.y() - self.point.y())) / (self.scaled_img.height() + 15)
+            self.point = QPoint(new_w, new_h)
+            self.repaint()
+        elif e.angleDelta().y() < 0:
+            # 缩小图片
+            self.scaled_size = QSize(self.scaled_size.width() + 15, self.scaled_size.height() + 15)
+
+            new_w = e.x() - (self.scaled_img.width() * (e.x() - self.point.x())) / (self.scaled_img.width() - 15)
+            new_h = e.y() - (self.scaled_img.height() * (e.y() - self.point.y())) / (self.scaled_img.height() - 15)
+            self.point = QPoint(new_w, new_h)
+            self.repaint()
+
+    def resizeEvent(self, e):
+        if self.parent is not None:
+            self.scaled_img = self.pix.scaled(self.size())
+            self.point = QPoint(0, 0)
             self.update()
 
 
