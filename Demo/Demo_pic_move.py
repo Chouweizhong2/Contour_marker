@@ -6,6 +6,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 
+
 class Main(QWidget):
     def __init__(self):
         super().__init__()
@@ -86,6 +87,7 @@ class ImageWithMouseControl(QWidget):
             self.scaled_img = self.img.scaled(self.size())
             self.point = QPoint(0, 0)
             self.update()
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

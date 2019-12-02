@@ -79,8 +79,7 @@ class MainWindow(QMainWindow):
         #listView.clicked.connect(self.clickedlist)  # listview 的点击事件
         self.listView.clicked[QModelIndex].connect(self.on_clicked)
         self.listView.doubleClicked.connect(self.Dclickedlist)
-        #layout.addWidget(listView)  # 将list view添加到layout
-        #建立布局
+
         toolLayout.addWidget(label1, 1, 0)
         toolLayout.addWidget(label11, 1, 1)
         toolLayout.addWidget(label2, 2, 0)
@@ -89,13 +88,9 @@ class MainWindow(QMainWindow):
         toolLayout.addWidget(label3,3,0,1,1)
         toolLayout.addWidget(self.listView,3,1,2,15)
 
-        #mainShowPart = QSplitter()
         toolQW = QWidget()
         toolQW.setLayout(toolLayout)
-
         self.area = MyDraw()
-        #testarea = QListWidget()
-        #mainShowPart.addWidget(self.area)
         layout = QSplitter(Qt.Horizontal)
         layout.addWidget(self.area)
         layout.addWidget(toolQW)
@@ -109,7 +104,7 @@ class MainWindow(QMainWindow):
     def on_clicked(self, index):
         print(index.row())
         item = self.entry.itemData(index)
-        print(self.listView.selectedIndexes()[0].row())
+        # print(self.listView.selectedIndexes()[0].row())
 
     def Dclickedlist(self, index):
         QMessageBox.information(self, "QListView", "你D选择了: " + self.qList[index.row()])
@@ -128,13 +123,17 @@ class MainWindow(QMainWindow):
                      image_width * image_depth,
                      QImage.Format_RGB888).rgbSwapped()
         self.area.pix = QPixmap.fromImage(QIm)  # 将QImage显示在之前创建的QLabel控件中
-        self.area.scaled_img = self.area.pix.scaled(self.area.scaled_size)
+        if image_height > image_width:
+            self.area.Mul_num = image_height/600
+        else:
+            self.area.Mul_num = image_width/600
+        # self.area.scaled_size = QSize(image_width/self.area.Mul_num, image_height/self.area.Mul_num)
         self.area.repaint()
-
 
 
 class MyDraw(QWidget):
     def __init__(self):
+        print('init my Draw')
         QWidget.__init__(self)
         #self.setupUi(self)
         self.resize(800,600)
@@ -151,12 +150,13 @@ class MyDraw(QWidget):
         self.scaled_img = self.pix.scaled(self.scaled_size)'''
         self.pix = QPixmap(800, 600)
         self.pix.fill(QColor(255, 255, 255))
-        self.scaled_size = self.size()
-        self.scaled_img = self.pix.scaled(self.scaled_size)
+
         self.point = QPoint(0, 0)
         self.endPoint = QPoint()
         self.lastPoint = QPoint()
         self.painter = QPainter()
+        self.point_list = []
+        self.Mul_num = 1
 
     def paintEvent(self, event):
         '''self.painter.begin(self)
@@ -168,9 +168,22 @@ class MyDraw(QWidget):
         painter.end()
 
     def draw_img(self, painter):
-        self.scaled_img = self.pix.scaled(self.scaled_size)
-        painter.drawPixmap(self.point, self.scaled_img)
-        print(self.scaled_size)
+        orgx = self.pix.size().width()
+
+        orgy = self.pix.size().height()
+        scaled_size = QSize(orgx/self.Mul_num, orgy/self.Mul_num)
+        scaled_img = self.pix.scaled(scaled_size)
+        painter.drawPixmap(self.point, scaled_img)
+        for i, pos in enumerate(self.point_list):
+            cir_x = pos.x()/self.Mul_num + self.point.x()-5
+            cir_y = pos.y()/self.Mul_num + self.point.y()-5
+            painter.drawEllipse(cir_x, cir_y, 10, 10)
+            if i != 0:
+                start_x = self.point_list[i-1].x()/self.Mul_num + self.point.x()
+                start_y = self.point_list[i-1].y()/self.Mul_num + self.point.y()
+                end_x = pos.x()/self.Mul_num + self.point.x()
+                end_y = pos.y()/self.Mul_num + self.point.y()
+                painter.drawLine(start_x, start_y, end_x, end_y)
 
     def mouseMoveEvent(self, e):  # 重写移动事件
         if e.buttons() == Qt.MidButton:
@@ -183,33 +196,47 @@ class MyDraw(QWidget):
     def mousePressEvent(self, e):
         if e.button() == Qt.MidButton:
             self._startPos = e.pos()
+        elif e.button() == Qt.LeftButton:  # 添加点
+            newpos = (e.pos() - self.point) * self.Mul_num
+            self.point_list.append(newpos)
+            print("Add: ", newpos.x(), newpos.y())
+            self.repaint()
+        elif e.button() == Qt.RightButton:  # 删除点
+            self.point_list.pop()
+            self.repaint()
 
     def mouseReleaseEvent(self, e):
-        if e.button() == Qt.RightButton:
+        '''if e.button() == Qt.RightButton:
             self.point = QPoint(0, 0)
             self.scaled_img = self.pix.scaled(self.size())
-            self.repaint()
+            self.repaint()'''
 
     def wheelEvent(self, e):
         if e.angleDelta().y() > 0:
             # 放大图片
-            self.scaled_size = QSize(self.scaled_size.width()-15, self.scaled_size.height()-15)
-            new_w = e.x() - (self.scaled_img.width() * (e.x() - self.point.x())) / (self.scaled_img.width() + 15)
-            new_h = e.y() - (self.scaled_img.height() * (e.y() - self.point.y())) / (self.scaled_img.height() + 15)
-            self.point = QPoint(new_w, new_h)
+            #self.scaled_size = QSize(self.scaled_size.width()-15, self.scaled_size.height()-15)
+            self.Mul_num -= 0.15
+            #new_w = e.x() - (self.pix.width()/self.Mul_num * (e.x() - self.point.x())) / (self.pix.width()/self.Mul_num + self.pix.width()/self.Mul_num*15)
+            #new_h = e.y() - (self.pix.height()/self.Mul_num * (e.y() - self.point.y())) / (self.pix.height()/self.Mul_num + self.pix.width()/self.Mul_num*15)
+            #self.point = QPoint(new_w, new_h)
             self.repaint()
+
         elif e.angleDelta().y() < 0:
             # 缩小图片
-            self.scaled_size = QSize(self.scaled_size.width() + 15, self.scaled_size.height() + 15)
-
-            new_w = e.x() - (self.scaled_img.width() * (e.x() - self.point.x())) / (self.scaled_img.width() - 15)
-            new_h = e.y() - (self.scaled_img.height() * (e.y() - self.point.y())) / (self.scaled_img.height() - 15)
-            self.point = QPoint(new_w, new_h)
+            self.Mul_num += 0.15
+            #self.scaled_size = QSize(self.scaled_size.width() + 15, self.scaled_size.height() + 15)
+            #new_w = e.x() - (self.pix.width()/self.Mul_num * (e.x() - self.point.x())) / (self.pix.width()/self.Mul_num - self.pix.width()/self.Mul_num*0.15)
+            #new_h = e.y() - (self.pix.height()/self.Mul_num * (e.y() - self.point.y())) / (self.pix.height()/self.Mul_num - self.pix.width()/self.Mul_num*15)
+            #self.point = QPoint(new_w, new_h)
             self.repaint()
 
     def resizeEvent(self, e):
         if self.parent is not None:
-            self.scaled_img = self.pix.scaled(self.size())
+            if self.pix.size().height() > self.pix.size().width():
+                self.Mul_num = self.pix.size().width()/self.size().width()
+            else:
+                self.Mul_num = self.pix.size().width()/self.size().width()
+            #self.scaled_img = self.pix.scaled(self.size())
             self.point = QPoint(0, 0)
             self.update()
 
