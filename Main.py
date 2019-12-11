@@ -1,6 +1,7 @@
 import os
 import sys
 
+import numpy as np
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
@@ -11,10 +12,11 @@ import MyDraw
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.area = MyDraw.MyDraw()
-        self.area.db = [['添加..',], [-1,]]
+        self.area = MyDraw.MyDraw(self)
+        self.area.db = [[], []]
         self.db_path = None
         self.scale = None  # 比例尺
+        self.scaleMode = None
         self.status = self.statusBar()
         self.init_ui()
 
@@ -45,62 +47,61 @@ class MainWindow(QMainWindow):
         file.addAction(tuichu)
 
         edit = my_menubar.addMenu('编辑')
-        delet_line = QAction('删除线', self)
-        edit.addAction(delet_line)
+        #delet_line = QAction('删除线', self)
+        #edit.addAction(delet_line)
 
         tuichu.triggered.connect(qApp.quit)
         open1.triggered.connect(self.open_file)
         save.triggered.connect(self.save_db)
         al_save.triggered.connect(self.save_db_as)
-        delet_line.triggered.connect(self.delet_line)
+        #delet_line.triggered.connect(self.delet_line)
 
         # 界面布局================================
         toolLayout = QGridLayout(self)
         #mainLayout.setMargin(10)
         toolLayout.setSpacing(6)
-        '''toolLayout.setColumnStretch(0, 1)
-        toolLayout.setColumnStretch(1, 3)
-        toolLayout.setColumnStretch(2, 1)'''
 
         label1 = QLabel("文件名：")
-        self.label11 = QLabel("未知")
+        self.label1_fname = QLabel("未知")
+        label_m = QLabel("编辑模式：")
+        self.label_mode = QLabel("等待打开文件")
         label2 = QLabel("比例尺：")
-        label2Button = QPushButton("更改")
-        self.label22 = QLabel("未知")
+        label2Button = QPushButton("单比例尺")
+        label22Button = QPushButton("xy双比例尺")
+        self.label_dgx = QLabel("未知")
         label3 = QLabel("等高线")
-
+        label3dButton = QPushButton("下方添加")
+        label3uButton = QPushButton("上方添加")
+        label33Button = QPushButton("删除选中")
         self.listView = QListView()
+
         self.entry = QStringListModel()  # 创建mode
-        # self.qList = ['添加..']  # 添加的数组数据
         self.entry.setStringList(self.area.db[0])  # 将数据设置到model
-        self.listView.setModel(self.entry)  ##绑定 listView 和 model
-        '''
-        self.itemOld = QStandardItem("text")
-        self.entry = QStandardItemModel()
-        self.qList = ['Line 1', 'Line 2', 'Line 3', 'Line 4', '添加..']
-        self.listView.setModel(self.entry)
-        for text in self.qList:
-            it = QStandardItem(text)
-            self.entry.appendRow(it)
-        
-        slm = QStringListModel()  # 创建mode
-        self.qList = ['Line 1', 'Line 2', 'Line 3', 'Line 4', '添加..']  # 添加的数组数据
-        slm.setStringList(self.qList)  # 将数据设置到model
-        self.listView.setModel(slm)  ##绑定 listView 和 model
-        '''
+        self.listView.setModel(self.entry)  # 绑定 listView 和 model
         self.listView.setEditTriggers(QTableView.NoEditTriggers)
         # listView.clicked.connect(self.clickedlist)  # listview 的点击事件
         self.listView.clicked[QModelIndex].connect(self.on_clicked)
         self.listView.doubleClicked.connect(self.Dclickedlist)
-        label2Button.clicked.connect(self.label2ButtonClicked)
+
+        label2Button.clicked.connect(lambda: self.scaleClicked('x'))
+        label22Button.clicked.connect(lambda: self.scaleClicked('xy'))
+        label3uButton.clicked.connect(lambda: self.addLine('up'))
+        label3dButton.clicked.connect(lambda: self.addLine('down'))
+        label33Button.clicked.connect(self.removeLine)
 
         toolLayout.addWidget(label1, 1, 0)
-        toolLayout.addWidget(self.label11, 1, 1)
-        toolLayout.addWidget(label2, 2, 0)
-        toolLayout.addWidget(self.label22, 2, 1)
-        toolLayout.addWidget(label2Button, 2, 2)
-        toolLayout.addWidget(label3,3,0,1,1)
-        toolLayout.addWidget(self.listView,3,1,2,15)
+        toolLayout.addWidget(self.label1_fname, 1, 1, 1, 3)
+        toolLayout.addWidget(label_m, 2, 0)
+        toolLayout.addWidget(self.label_mode, 2, 1, 1, 3)
+        toolLayout.addWidget(label2, 3, 0)
+        toolLayout.addWidget(self.label_dgx, 3, 1)
+        toolLayout.addWidget(label2Button, 3, 2)
+        toolLayout.addWidget(label22Button, 3, 3)
+        toolLayout.addWidget(label3, 4, 0, 1, 1)
+        toolLayout.addWidget(label3dButton, 4, 1, 1, 1)
+        toolLayout.addWidget(label3uButton, 4, 2, 1, 1)
+        toolLayout.addWidget(label33Button, 4, 3, 1, 1)
+        toolLayout.addWidget(self.listView, 5, 1, 20, 3)
 
         toolQW = QWidget()
         toolQW.setLayout(toolLayout)
@@ -119,12 +120,8 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "警告", "尚未确定比例尺")
             return None
         print('单击的是', index.row())
-        if self.area.db[1][index.row()] != -1:
-            self.area.draw_mod = index.row()
-            self.area.repaint()
-        else:
-            self.area.draw_mod = -2
-            self.area.repaint()
+        self.area.draw_mod = index.row()
+        self.area.repaint()
         # item = self.entry.itemData(index)
         # print(self.listView.selectedIndexes()[0].row())
 
@@ -132,23 +129,55 @@ class MainWindow(QMainWindow):
         print("双击的是：" + str(index.row()))
         # QMessageBox.information(self, "QListView", "你D选择了: " + str(self.area.db[0][index.row()]))
         # print(self.listView.selectedIndexes())
-
-        if self.area.db[1][index.row()] == -1:
-            self.area.db[0].insert(index.row(), 'new line')
-            self.area.db[1].insert(index.row(), [])
-        else:
-            i, okPressed = QInputDialog.getInt(self, "等高线", "此等高线高度", 0, 0, 100000, 10)
-            if okPressed:
-                self.area.db[0][index.row()] = str(i)
-
-
+        i, okPressed = QInputDialog.getDouble(self, "等高线", "此等高线高度", 0.0, -100000.0, 100000.0, 10.0)
+        if okPressed:
+            self.area.db[0][index.row()] = str(i)
         self.entry.setStringList(self.area.db[0])
 
-    def label2ButtonClicked(self):
+    def scaleClicked(self, stype:str):
         if self.db_path is None:
             QMessageBox.information(self, "警告", "尚未打开文件")
             #return None
-        if len(self.area.point_list) != 2:
+        if stype == 'x':
+            self.label_mode.setText("比例尺模式：单比例尺，请选择两个点")
+            self.area.draw_mod = -1
+            self.area.point_list = []
+        elif stype == 'xy':
+            self.scale = []
+            self.label_mode.setText("比例尺模式：X 请选择两个点")
+            self.area.draw_mod = -2
+            self.area.point_list_x = []
+
+        if stype == 'ok':
+            self.area.draw_mod = -10
+            i, okPressed = QInputDialog.getInt(self, "比例尺", "真实距离 米:", 0, 0, 100000, 10)
+            x1 = self.area.point_list[0][0]
+            x2 = self.area.point_list[1][0]
+            y1 = self.area.point_list[0][1]
+            y2 = self.area.point_list[1][1]
+            map_length = (abs(x2 - x1) ** 2 + abs(y2 - y1) ** 2) ** 0.5
+            self.scale = round(i / map_length, 5)
+            self.label_dgx.setText(str(self.scale))
+
+        elif stype == 'xok':
+            i, okPressed = QInputDialog.getInt(self, "比例尺X", "X真实距离 米:", 0, 0, 100000, 10)
+            x1 = self.area.point_list[0][0]
+            x2 = self.area.point_list[1][0]
+            map_length = abs(x2 - x1)
+            self.scale.append(round(i / map_length, 5))
+            self.label_mode.setText("比例尺模式：Y 请选择两个点")
+            self.area.draw_mod = -3
+            self.area.point_list_y = []
+        elif stype == 'yok':
+            i, okPressed = QInputDialog.getInt(self, "比例尺Y", "Y真实距离 米:", 0, 0, 100000, 10)
+            self.area.draw_mod = -10
+            y1 = self.area.point_list[0][1]
+            y2 = self.area.point_list[1][1]
+            map_length = abs(y2 - y1)
+            self.scale.append(round(i / map_length, 5))
+
+
+        '''if len(self.area.point_list) != 2:
             QMessageBox.information(self, "比例尺", "请先在地图选择两个点")
             return None
         else:
@@ -160,7 +189,7 @@ class MainWindow(QMainWindow):
                 y2 = self.area.point_list[1][1]
                 map_length = (abs(x2-x1)**2+abs(y2-y1)**2)**0.5
                 self.scale = round(i/map_length, 5)
-                self.label22.setText(str(self.scale))
+                self.label_dgx.setText(str(self.scale))'''
         '''dlg =  QtGui.QInputDialog(self)                 
 dlg.setInputMode( QtGui.QInputDialog.TextInput) 
 dlg.setLabelText("URL:")                        
@@ -169,14 +198,21 @@ ok = dlg.exec_()
 url = dlg.textValue()'''
 
     def open_file(self):
-
-        openfile_name, openfile_type = QFileDialog.getOpenFileName(self, '选择文件', './')
-        print(openfile_name)
-        self.label11.setText(openfile_name.split('/')[-1])
+        openfile_name, openfile_type = QFileDialog.getOpenFileName(self,
+                                        '选择文件', './', "Image File(*.jpg *.png *.jpeg);;All file(*.*)")
+        if openfile_name is '':
+            return 0
+        full_fname = openfile_name.split('/')[-1]
+        if len(full_fname) > 15:
+            full_fname = "..."+full_fname[-15:]
+        self.label1_fname.setText(full_fname)
         self.setWindowTitle('Contour Marker V0.5 Editing:'+openfile_name)
         # ====================读取图片===================
-        openfile_name_gbk = openfile_name.encode('gbk')
-        cvIm = cv2.imread(openfile_name_gbk, -1)  # 通过Opencv读入一张图片
+        # 待解决：gif 读取， opencv没有商业权限读取gif格式
+        # cvIm = cv2.imread(openfile_name)  # 通过Opencv读入一张图片
+        # 解决读取中文路径问题 使用numpy包读取。
+        cvIm = cv2.imdecode(np.fromfile(openfile_name, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
+        # cv2.imshow("test", cvIm)
         image_height, image_width, image_depth = cvIm.shape  # 获取图像的高，宽以及深度。
         print(image_height, image_width)
         # QIm = cv2.cvtColor(Im, cv2.COLOR_BGR2RGB)  # opencv读图片是BGR，qt显示要RGB，所以需要转换一下
@@ -188,11 +224,10 @@ url = dlg.textValue()'''
             self.area.Mul_num = image_height/600
         else:
             self.area.Mul_num = image_width/600
-        # self.area.scaled_size = QSize(image_width/self.area.Mul_num, image_height/self.area.Mul_num)
         self.area.repaint()
         # =======================读取数据库================================
         self.area.db = [['添加..', ], [-1, ]]  # 重置当前状态
-        self.label22.setText('未知')
+        self.label_dgx.setText('未知')
         self.scale = None
         self.area.draw_mod = -1
         self.area.point_list = []
@@ -206,7 +241,6 @@ url = dlg.textValue()'''
         self.db_path = open_dict_name[:-1]
         self.open_db()
 
-
     def open_db(self):
         if self.db_path is None:
             return None
@@ -219,7 +253,7 @@ url = dlg.textValue()'''
                         self.scale = None
                     else:
                         self.scale = lines[0].split('#')[1]
-                        self.label22.setText(self.scale)
+                        self.label_dgx.setText(self.scale)
                     for i in range(len(lines)-1):
                         self.area.db[0].insert(i, lines[i + 1].split('\t')[0])
                         list_point = []
@@ -259,8 +293,37 @@ url = dlg.textValue()'''
                     f.write(k + '\t' + v_string + '\n')
         self.status.showMessage('储存成功!')
 
-    def delet_line(self):
+    def addLine(self, types):
 
+        print('addLine',types)
+        if len(self.listView.selectedIndexes()) > 0:
+            selected_index = self.listView.selectedIndexes()[0].row()
+            if types == 'up':
+                self.area.db[0].insert(selected_index, 'new line')
+                self.area.db[1].insert(selected_index, [])
+            elif types == 'down':
+                self.area.db[0].insert(selected_index+1, 'new line')
+                self.area.db[1].insert(selected_index+1, [])
+        else:
+            if types == 'up':
+                self.area.db[0].insert(0,'new line')
+                self.area.db[1].insert(0,[])
+            else:
+                self.area.db[0].append('new line')
+                self.area.db[1].append([])
+
+        self.entry.setStringList(self.area.db[0])
+
+    def removeLine(self):
+        if len(self.listView.selectedIndexes()) > 0:
+            selected_index = self.listView.selectedIndexes()[0].row()
+            reply = QMessageBox.question(self, '删除', '确定删除{}:{}？'.format(selected_index,
+                                                                         self.area.db[0][selected_index]),
+                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if reply == QMessageBox.Yes:
+                self.area.db[0].pop(selected_index)
+                self.area.db[1].pop(selected_index)
+                self.entry.setStringList(self.area.db[0])
 
 
 if __name__ == '__main__':
