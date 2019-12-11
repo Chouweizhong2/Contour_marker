@@ -30,7 +30,7 @@ class MainWindow(QMainWindow):
         my_menubar = self.menuBar()
         file = my_menubar.addMenu('文件')
         # 设置菜单================================
-        open1 = QAction('打开', self)  # 为打开按钮设置图标，显示文本
+        open1 = QAction('打开', self)  # 为打开按钮文本
         open1.setShortcut('ctrl+o')  # 设置快捷键
         file.addAction(open1)  # 添加打开按钮
         file.addSeparator()  # 添加间隔，好看
@@ -44,10 +44,15 @@ class MainWindow(QMainWindow):
         file.addSeparator()
         file.addAction(tuichu)
 
+        edit = my_menubar.addMenu('编辑')
+        delet_line = QAction('删除线', self)
+        edit.addAction(delet_line)
+
         tuichu.triggered.connect(qApp.quit)
         open1.triggered.connect(self.open_file)
         save.triggered.connect(self.save_db)
         al_save.triggered.connect(self.save_db_as)
+        delet_line.triggered.connect(self.delet_line)
 
         # 界面布局================================
         toolLayout = QGridLayout(self)
@@ -170,7 +175,8 @@ url = dlg.textValue()'''
         self.label11.setText(openfile_name.split('/')[-1])
         self.setWindowTitle('Contour Marker V0.5 Editing:'+openfile_name)
         # ====================读取图片===================
-        cvIm = cv2.imread(openfile_name, -1)  # 通过Opencv读入一张图片
+        openfile_name_gbk = openfile_name.encode('gbk')
+        cvIm = cv2.imread(openfile_name_gbk, -1)  # 通过Opencv读入一张图片
         image_height, image_width, image_depth = cvIm.shape  # 获取图像的高，宽以及深度。
         print(image_height, image_width)
         # QIm = cv2.cvtColor(Im, cv2.COLOR_BGR2RGB)  # opencv读图片是BGR，qt显示要RGB，所以需要转换一下
@@ -252,6 +258,9 @@ url = dlg.textValue()'''
                     v_string = str(v).replace(" ","")
                     f.write(k + '\t' + v_string + '\n')
         self.status.showMessage('储存成功!')
+
+    def delet_line(self):
+
 
 
 if __name__ == '__main__':
