@@ -32,7 +32,6 @@ class MyDraw(QWidget):
         -10：等待
         '''
         self.draw_mod = -10
-        self.point_list = []
         self.point_list_x = []
         self.point_list_y = []
         self.db = None
@@ -54,7 +53,7 @@ class MyDraw(QWidget):
         # 画点和线部分：
         show_points = None
         if self.draw_mod == -1:
-            show_points = self.point_list
+            show_points = self.point_list_x
         elif self.draw_mod == -2:
             show_points = self.point_list_x
         elif self.draw_mod == -3:
@@ -76,15 +75,17 @@ class MyDraw(QWidget):
 
     def checkEvents222(self):
         if self.draw_mod == -1:
-            if len(self.point_list) == 2:
-                print('self.draw_mod', self.draw_mod)
-                self.father.scaleClicked('ok')
+            if len(self.point_list_x) == 2:
+                if self.father.scaleTable.item(0, 0) is None:
+                    self.father.scaleClicked('ok')
         if self.draw_mod == -2:
             if len(self.point_list_x) == 2:
-                self.father.scaleClicked('xok')
+                if self.father.scaleTable.item(0, 0) is None:
+                    self.father.scaleClicked('xok')
         if self.draw_mod == -3:
             if len(self.point_list_y) == 2:
-                self.father.scaleClicked('yok')
+                if self.father.scaleTable.item(0, 1) is None:
+                    self.father.scaleClicked('yok')
 
     def mouseMoveEvent(self, e):  # 重写移动事件
         if e.buttons() == Qt.MidButton:
@@ -93,6 +94,16 @@ class MyDraw(QWidget):
             self.point = self.point + self._endPos
             self._startPos = e.pos()
             self.repaint()
+        else:
+            orgx = self.pix.size().width()
+            orgy = self.pix.size().height()
+            abs_pos_x = e.x() - self.point.x()
+            abs_pos_y = e.y() - self.point.y()
+            if 0 < abs_pos_x < orgx / self.Mul_num and 0 < abs_pos_y < orgy / self.Mul_num:
+                self.father.abspos_Label.setText('坐标 (' + str(round(abs_pos_x * self.Mul_num, 6))
+                                                 + ',' + str(round(abs_pos_y * self.Mul_num, 6)) + ')')
+            else:
+                self.father.abspos_Label.setText('坐标 出界')
 
     def mousePressEvent(self, e):
         if e.button() == Qt.MidButton:
@@ -103,17 +114,17 @@ class MyDraw(QWidget):
             self.remove_point()
 
     def add_point(self, e):
-        if self.draw_mod == -1 and len(self.point_list) < 2:
-            newpos = (e.pos() - self.point) * self.Mul_num
-            self.point_list.append((newpos.x(), newpos.y()))
-            print("Add: ", newpos.x(), newpos.y())
-            self.repaint()
-        if self.draw_mod == -2 and len(self.point_list) < 2:
+        if self.draw_mod == -1 and len(self.point_list_x) < 2:
             newpos = (e.pos() - self.point) * self.Mul_num
             self.point_list_x.append((newpos.x(), newpos.y()))
             print("Add: ", newpos.x(), newpos.y())
             self.repaint()
-        if self.draw_mod == -3 and len(self.point_list) < 2:
+        if self.draw_mod == -2 and len(self.point_list_x) < 2:
+            newpos = (e.pos() - self.point) * self.Mul_num
+            self.point_list_x.append((newpos.x(), newpos.y()))
+            print("Add: ", newpos.x(), newpos.y())
+            self.repaint()
+        if self.draw_mod == -3 and len(self.point_list_y) < 2:
             newpos = (e.pos() - self.point) * self.Mul_num
             self.point_list_y.append((newpos.x(), newpos.y()))
             print("Add: ", newpos.x(), newpos.y())
@@ -125,21 +136,33 @@ class MyDraw(QWidget):
             self.repaint()
 
     def remove_point(self):
-        if self.draw_mod == -1 and len(self.point_list) > 0:
-            self.point_list.pop()
+        if self.draw_mod == -1 and len(self.point_list_x) > 0:
+            self.father.scaleTable.setItem(0, 0, None)
+            self.father.scaleTable.setItem(0, 1, None)
+            self.point_list_x.pop()
+            self.repaint()
+        if self.draw_mod == -2 and len(self.point_list_x) > 0:
+            self.father.scaleTable.setItem(0, 0, None)
+            self.point_list_x.pop()
+            self.repaint()
+        if self.draw_mod == -3 and len(self.point_list_y) > 0:
+            self.father.scaleTable.setItem(0, 1, None)
+            self.point_list_y.pop()
             self.repaint()
         elif self.draw_mod >= 0 and len(self.db[1][self.draw_mod]) > 0:
-            self.self.db[1][self.draw_mod].pop()
+            self.db[1][self.draw_mod].pop()
+            print("pop success")
             self.repaint()
 
     def mouseReleaseEvent(self, e):
-        self.checkEvents222()
+        if e.button() == Qt.LeftButton:
+            self.checkEvents222()
 
     def wheelEvent(self, e):
         if e.angleDelta().y() > 0:
             # 放大图片
-            pos_x = (e.x() - self.point.x()) * 0.1/(self.Mul_num-0.1)
-            pos_y = (e.y() - self.point.y()) * 0.1/(self.Mul_num-0.1)
+            pos_x = (e.x() - self.point.x()) * 0.1 / (self.Mul_num - 0.1)
+            pos_y = (e.y() - self.point.y()) * 0.1 / (self.Mul_num - 0.1)
             self.Mul_num -= 0.10
             self.point.setX(self.point.x() - pos_x)
             self.point.setY(self.point.y() - pos_y)
@@ -147,8 +170,8 @@ class MyDraw(QWidget):
 
         elif e.angleDelta().y() < 0:
             # 缩小图片
-            pos_x = (e.x() - self.point.x()) * 0.1/(self.Mul_num+0.1)
-            pos_y = (e.y() - self.point.y()) * 0.1/(self.Mul_num+0.1)
+            pos_x = (e.x() - self.point.x()) * 0.1 / (self.Mul_num + 0.1)
+            pos_y = (e.y() - self.point.y()) * 0.1 / (self.Mul_num + 0.1)
             self.Mul_num += 0.10
             self.point.setX(self.point.x() + pos_x)
             self.point.setY(self.point.y() + pos_y)
