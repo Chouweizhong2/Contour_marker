@@ -21,6 +21,7 @@ class MyDraw(QWidget):
         self.endPoint = QPoint()
         self.lastPoint = QPoint()
         self.painter = QPainter()
+        self.enable_draw = False
 
         # ==========data
         self.Mul_num = 1
@@ -48,7 +49,8 @@ class MyDraw(QWidget):
         orgy = self.pix.size().height()
         scaled_size = QSize(orgx / self.Mul_num, orgy / self.Mul_num)
         scaled_img = self.pix.scaled(scaled_size)
-        painter.drawPixmap(self.point, scaled_img)
+        if self.father.hide_map == 0:
+            painter.drawPixmap(self.point, scaled_img)
 
         # 画点和线部分：
         show_points = None
@@ -59,18 +61,42 @@ class MyDraw(QWidget):
         elif self.draw_mod == -3:
             show_points = self.point_list_y
         elif self.draw_mod >= 0:
-            show_points = self.db[1][self.draw_mod]
+            self.draw_line(painter, self.db[1][self.draw_mod],
+                           self.db[2][self.draw_mod][0],
+                           self.db[2][self.draw_mod][1])
+        elif self.draw_mod == -99:
+            for i in range(len(self.db[0])):
+                self.draw_line(painter, self.db[1][i],
+                               self.db[2][i][0],
+                               self.db[2][i][1])
+
+        self.draw_line(painter, show_points)
+
+    def draw_line(self, painter, show_points, color=QColor(0, 0, 0), pen_type='实线'):
+        if show_points is None:
+            return 0
+        painter.setBrush(color)
+        if pen_type == '实线':
+            pen_type = Qt.SolidLine
         else:
-            show_points = []
+            pen_type = Qt.DashLine
+        pen = QPen(color, 1, pen_type)
+        painter.setPen(pen)
         for i, pos in enumerate(show_points):
-            cir_x = pos[0] / self.Mul_num + self.point.x() - 5
-            cir_y = pos[1] / self.Mul_num + self.point.y() - 5
-            painter.drawEllipse(cir_x, cir_y, 10, 10)
+            cir_x = pos[0] / self.Mul_num + self.point.x() - 3
+            cir_y = pos[1] / self.Mul_num + self.point.y() - 3
+            painter.drawEllipse(cir_x, cir_y, 6, 6)
             if i != 0:
                 start_x = show_points[i - 1][0] / self.Mul_num + self.point.x()
                 start_y = show_points[i - 1][1] / self.Mul_num + self.point.y()
                 end_x = pos[0] / self.Mul_num + self.point.x()
                 end_y = pos[1] / self.Mul_num + self.point.y()
+                painter.drawLine(start_x, start_y, end_x, end_y)
+            if self.father.edit_mode == 0:
+                start_x = show_points[-1][0] / self.Mul_num + self.point.x()
+                start_y = show_points[-1][1] / self.Mul_num + self.point.y()
+                end_x = show_points[0][0] / self.Mul_num + self.point.x()
+                end_y = show_points[0][1] / self.Mul_num + self.point.y()
                 painter.drawLine(start_x, start_y, end_x, end_y)
 
     def checkEvents222(self):
@@ -108,10 +134,13 @@ class MyDraw(QWidget):
     def mousePressEvent(self, e):
         if e.button() == Qt.MidButton:
             self._startPos = e.pos()
-        elif e.button() == Qt.LeftButton:  # 添加点
-            self.add_point(e)
-        elif e.button() == Qt.RightButton:  # 删除点
-            self.remove_point()
+        if self.father.edit_mode == 1:
+            if e.button() == Qt.LeftButton:  # 添加点
+                self.add_point(e)
+                self.father.change_saved = 0
+            elif e.button() == Qt.RightButton:  # 删除点
+                self.remove_point()
+                self.father.change_saved = 0
 
     def add_point(self, e):
         if self.draw_mod == -1 and len(self.point_list_x) < 2:
@@ -155,18 +184,20 @@ class MyDraw(QWidget):
             self.repaint()
 
     def mouseReleaseEvent(self, e):
-        if e.button() == Qt.LeftButton:
-            self.checkEvents222()
+        if self.father.edit_mode == 1:
+            if e.button() == Qt.LeftButton:
+                self.checkEvents222()
 
     def wheelEvent(self, e):
         if e.angleDelta().y() > 0:
             # 放大图片
             pos_x = (e.x() - self.point.x()) * 0.1 / (self.Mul_num - 0.1)
             pos_y = (e.y() - self.point.y()) * 0.1 / (self.Mul_num - 0.1)
-            self.Mul_num -= 0.10
-            self.point.setX(self.point.x() - pos_x)
-            self.point.setY(self.point.y() - pos_y)
-            self.repaint()
+            if self.Mul_num > 0.3:
+                self.Mul_num -= 0.10
+                self.point.setX(self.point.x() - pos_x)
+                self.point.setY(self.point.y() - pos_y)
+                self.repaint()
 
         elif e.angleDelta().y() < 0:
             # 缩小图片

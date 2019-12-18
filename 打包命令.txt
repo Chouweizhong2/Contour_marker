@@ -1,0 +1,4 @@
+unable to find Qt5Core.dll on PATH
+更换库版本即可
+
+pyinstaller -F -w Main.py
