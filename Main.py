@@ -38,7 +38,11 @@ class MainWindow(QMainWindow):
         # 设置菜单================================
         open1 = QAction('打开', self)  # 为打开按钮文本
         open1.setShortcut('ctrl+o')  # 设置快捷键
+        open_img = QAction('打开图', self)
+        open_db = QAction('打开数据库', self)
         file.addAction(open1)  # 添加打开按钮
+        file.addAction(open_img)
+        file.addAction(open_db)
         file.addSeparator()  # 添加间隔，好看
         save = QAction('保存', self)
         save.setShortcut('ctrl+s')
@@ -55,9 +59,10 @@ class MainWindow(QMainWindow):
         # edit.addAction(delet_line)
         self.abspos_Label = QLabel('坐标：')
         self.status.addPermanentWidget(self.abspos_Label, stretch=0)
-
         tuichu.triggered.connect(qApp.quit)
         open1.triggered.connect(self.open_file)
+        open_img.triggered.connect(lambda: self.open_file(True))
+        open_db.triggered.connect(lambda: self.clean_db(None,True))
         save.triggered.connect(lambda: self.save_db(self.db_path))
         al_save.triggered.connect(lambda: self.save_db('as'))
         # delet_line.triggered.connect(self.delet_line)
@@ -74,7 +79,8 @@ class MainWindow(QMainWindow):
         self.label_mode = QLabel("编辑模式")
         self.btn_mode = QPushButton('浏览模式')
         label2 = QLabel("比例尺：")
-        self.scale_unit = QPushButton('比例尺单位')
+        self.scale_unit = QComboBox()
+        self.scale_unit.addItems(['比例尺单位', 'm', 'km', 'degree', '其他'])
         self.scaleTable = QTableWidget(2, 1)
         self.scaleTable.setVerticalHeaderLabels(['X比例尺', 'Y比例尺'])
         self.scaleTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -110,7 +116,8 @@ class MainWindow(QMainWindow):
         self.listView.customContextMenuRequested[QPoint].connect(self.change_color_meun)
         self.show_all.clicked.connect(self.show_all_clicked)
         btn_hide_map.clicked.connect(self.hide_map_clicked)
-        self.scale_unit.clicked.connect(self.scale_unit_clicked)
+        self.scale_unit.currentIndexChanged.connect(self.scale_unit_clicked)
+
 
         toolLayout.addWidget(label1, 1, 0)
         toolLayout.addWidget(self.user_name, 1, 1, 1, 3)
@@ -146,9 +153,15 @@ class MainWindow(QMainWindow):
         wid.setLayout(fin_layout)
 
     def scale_unit_clicked(self):
-        i, okPressed = QInputDialog.getText(self, "比例尺", "此比例尺单位")
-        self.scale_unit.setText(i)
+        if self.scale_unit.currentIndex() == 4:
+            i, okPressed = QInputDialog.getText(self, "比例尺", "此比例尺单位")
+            if okPressed:
+                self.scale_unit.clear()
+                self.scale_unit.addItems(['比例尺单位', 'm', 'km', 'degree', '其他'])
+                self.scale_unit.addItem(i)
+                self.scale_unit.setCurrentIndex(5)
         self.change_saved = 0
+        print(self.scale_unit.currentIndex())
 
     def hide_map_clicked(self):
         if self.hide_map == 0:
@@ -216,6 +229,8 @@ class MainWindow(QMainWindow):
         self.area.draw_mod = -(index.row() + 2)
         self.label_mode.setText('查看比例尺，编辑请按钮')
         self.area.repaint()
+        self.edit_mode == 1
+        self.mode_change()
 
     def Dclickedlist(self, index):
         print("双击的是：" + str(index.row()))
@@ -280,7 +295,14 @@ class MainWindow(QMainWindow):
         scale_str = str(round(R_length / map_length, 5))
         return scale_str
 
-    def open_file(self):
+    def open_file(self,only_img=False):
+        if self.change_saved == 0:
+            reply = QMessageBox.question(self, '警告', '尚未保存,\n你确认要打开新文件吗？',
+                                         QMessageBox.Yes, QMessageBox.No)
+            if reply == QMessageBox.No:
+                return 0
+
+        self.change_saved = 1
         openfile_name, openfile_type = QFileDialog.getOpenFileName(self,
                                                                    '选择文件', './',
                                                                    "Image File(*.jpg *.png *.jpeg);;All file(*.*)")
@@ -310,6 +332,15 @@ class MainWindow(QMainWindow):
         else:
             self.area.Mul_num = image_width / 600
         self.area.repaint()
+        if not only_img:
+            self.clean_db(openfile_name)
+
+    def clean_db(self, openfile_name, only_db=False):
+        if self.change_saved == 0:
+            reply = QMessageBox.question(self, '警告', '尚未保存,\n你确认要打开新文件吗？',
+                                         QMessageBox.Yes, QMessageBox.No)
+            if reply == QMessageBox.No:
+                return 0
         # =======================读取数据库================================
         self.area.db = [[], [], []]  # 重置当前状态
         self.entry.setStringList(self.area.db[0])
@@ -320,15 +351,23 @@ class MainWindow(QMainWindow):
         self.area.draw_mod = -10
         self.area.point_list_x = []
         self.area.point_list_y = []
-        self.scale_unit.setText('比例尺单位')
-
-        print('数据库重置成功')
-        open_dict_name_s = openfile_name.split('.')
-        open_dict_name_s[-1] = 'txt'
-        open_dict_name = ''
-        for i in open_dict_name_s:
-            open_dict_name += (i + '.')
-        self.db_path = open_dict_name[:-1]
+        self.scale_unit.clear()
+        self.scale_unit.addItems(['比例尺单位', 'm', 'km', 'degree', '其他'])
+        if not only_db:
+            print('数据库重置成功')
+            open_dict_name_s = openfile_name.split('.')
+            open_dict_name_s[-1] = 'txt'
+            open_dict_name = ''
+            for i in open_dict_name_s:
+                open_dict_name += (i + '.')
+            self.db_path = open_dict_name[:-1]
+        else:
+            openfile_name, openfile_type = QFileDialog.getOpenFileName(self,
+                                                                       '选择文件', './',
+                                                                       "DB File(*.txt);;All file(*.*)")
+            if openfile_name is '':
+                return 0
+            self.db_path = openfile_name
         print("self.db_path", self.db_path)
         self.open_db()
 
@@ -354,7 +393,8 @@ class MainWindow(QMainWindow):
                         elif 'Scale_type' in line:
                             self.scaleMode = int(line.split(' ')[-1][:-1])
                         elif 'Scale_unit' in line:
-                            self.scale_unit.setText(line.split(' ')[-1][:-1])
+                            self.scale_unit.addItem(line.split(' ')[-1][:-1])
+                            self.scale_unit.setCurrentIndex(5)
                         elif 'Scale_num' in line:
                             self.scale = line.split(' ')[-1][2:-3].split("','")
                             self.scaleTable.setItem(0, 0, QTableWidgetItem(self.scale[0]))
@@ -385,6 +425,7 @@ class MainWindow(QMainWindow):
             with open(self.db_path, 'w') as f:
                 f.close()
                 self.status.showMessage('数据库为空，已新建数据库' + self.db_path)
+        self.change_saved = 1
         self.label_mode.setText('打开成功，等待编辑')
 
     def save_db(self, save_path):
@@ -405,13 +446,13 @@ class MainWindow(QMainWindow):
             if self.scaleMode == 0 and len(self.area.point_list_x) == 2:
                 f.write('Scale_type {}\n'.format(self.scaleMode))
                 f.write('Scale_num {}\n'.format(str(self.scale).replace(" ", "")))
-                f.write('Scale_unit {}\n'.format(self.scale_unit.text()))
+                f.write('Scale_unit {}\n'.format(self.scale_unit.currentText()))
                 f.write('Scale_points {}\n'.format(str(self.area.point_list_x).replace(" ", "")))
             elif len(self.area.point_list_x) == 2 and len(self.area.point_list_y) == 2:
                 write_list = self.area.point_list_x + self.area.point_list_y
                 f.write('Scale_type {}\n'.format(self.scaleMode))
                 f.write('Scale_num {}\n'.format(str(self.scale).replace(" ", "")))
-                f.write('Scale_unit {}\n'.format(self.scale_unit.text()))
+                f.write('Scale_unit {}\n'.format(self.scale_unit.currentText()))
                 f.write('Scale_points {}\n'.format(str(write_list).replace(" ", "")))
             for name, points, c_t in zip(self.area.db[0], self.area.db[1], self.area.db[2]):
                 c_str = str(c_t[0].getRgb()).replace(" ", "")
