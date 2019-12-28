@@ -2,15 +2,17 @@ import pickle
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
+import os
 
 
-def get_point(str_points):
+'''def get_point(str_points):
     list_point = []
     str_points_list = str_points.split('),(')
     for i in str_points_list:
         list_point.append(tuple(eval(i)))
     return list_point
 
+os.makedirs
 
 
 
@@ -40,5 +42,7 @@ with open(dbpath) as f:
             height = parts[0][1:]
             line_type = parts[2]
             points = get_point(parts[3][2:-3])
-            ''
-
+'''
+mystr = ''
+mystr_list = mystr.split('),(')
+print(mystr_list)

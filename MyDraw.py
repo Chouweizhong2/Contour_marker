@@ -55,11 +55,12 @@ class MyDraw(QWidget):
         # 画点和线部分：
         show_points = None
         if self.draw_mod == -1:
-            show_points = self.point_list_x
+            self.draw_line(painter, self.point_list_x)
+            self.draw_line(painter, self.point_list_y)
         elif self.draw_mod == -2:
-            show_points = self.point_list_x
+            self.draw_line(painter, self.point_list_x)
         elif self.draw_mod == -3:
-            show_points = self.point_list_y
+            self.draw_line(painter, self.point_list_y)
         elif self.draw_mod >= 0:
             self.draw_line(painter, self.db[1][self.draw_mod],
                            self.db[2][self.draw_mod][0],
@@ -69,8 +70,6 @@ class MyDraw(QWidget):
                 self.draw_line(painter, self.db[1][i],
                                self.db[2][i][0],
                                self.db[2][i][1])
-
-        self.draw_line(painter, show_points)
 
     def draw_line(self, painter, show_points, color=QColor(0, 0, 0), pen_type='实线'):
         if show_points is None:
@@ -99,19 +98,13 @@ class MyDraw(QWidget):
                 end_y = show_points[0][1] / self.Mul_num + self.point.y()
                 painter.drawLine(start_x, start_y, end_x, end_y)
 
-    def checkEvents222(self):
-        if self.draw_mod == -1:
-            if len(self.point_list_x) == 2:
-                if self.father.scaleTable.item(0, 0) is None:
-                    self.father.scaleClicked('ok')
+    def checkEvents_scale(self):
         if self.draw_mod == -2:
             if len(self.point_list_x) == 2:
-                if self.father.scaleTable.item(0, 0) is None:
-                    self.father.scaleClicked('xok')
+                self.father.scale_changed('xok')
         if self.draw_mod == -3:
             if len(self.point_list_y) == 2:
-                if self.father.scaleTable.item(0, 1) is None:
-                    self.father.scaleClicked('yok')
+                self.father.scale_changed('yok')
 
     def mouseMoveEvent(self, e):  # 重写移动事件
         if e.buttons() == Qt.MidButton:
@@ -143,21 +136,18 @@ class MyDraw(QWidget):
                 self.father.change_saved = 0
 
     def add_point(self, e):
-        if self.draw_mod == -1 and len(self.point_list_x) < 2:
-            newpos = (e.pos() - self.point) * self.Mul_num
-            self.point_list_x.append((newpos.x(), newpos.y()))
-            print("Add: ", newpos.x(), newpos.y())
-            self.repaint()
         if self.draw_mod == -2 and len(self.point_list_x) < 2:
             newpos = (e.pos() - self.point) * self.Mul_num
             self.point_list_x.append((newpos.x(), newpos.y()))
             print("Add: ", newpos.x(), newpos.y())
             self.repaint()
+            self.checkEvents_scale()
         if self.draw_mod == -3 and len(self.point_list_y) < 2:
             newpos = (e.pos() - self.point) * self.Mul_num
             self.point_list_y.append((newpos.x(), newpos.y()))
             print("Add: ", newpos.x(), newpos.y())
             self.repaint()
+            self.checkEvents_scale()
         elif self.draw_mod >= 0 and self.db[1] != -1:
             newpos = (e.pos() - self.point) * self.Mul_num
             self.db[1][self.draw_mod].append((newpos.x(), newpos.y()))
@@ -165,11 +155,6 @@ class MyDraw(QWidget):
             self.repaint()
 
     def remove_point(self):
-        if self.draw_mod == -1 and len(self.point_list_x) > 0:
-            self.father.scaleTable.setItem(0, 0, None)
-            self.father.scaleTable.setItem(0, 1, None)
-            self.point_list_x.pop()
-            self.repaint()
         if self.draw_mod == -2 and len(self.point_list_x) > 0:
             self.father.scaleTable.setItem(0, 0, None)
             self.point_list_x.pop()
@@ -184,9 +169,7 @@ class MyDraw(QWidget):
             self.repaint()
 
     def mouseReleaseEvent(self, e):
-        if self.father.edit_mode == 1:
-            if e.button() == Qt.LeftButton:
-                self.checkEvents222()
+        pass
 
     def wheelEvent(self, e):
         if e.angleDelta().y() > 0:
