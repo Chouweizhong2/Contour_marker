@@ -22,6 +22,7 @@ class MainWindow(QMainWindow):
         self.status = self.statusBar()
         self.init_ui()
         self.hide_map = 0
+        self.show_all_temp = -99
 
     def init_ui(self):
         # 设置窗口属性
@@ -76,7 +77,7 @@ class MainWindow(QMainWindow):
         self.user_name.setPlaceholderText('请输入用户名')
         label_m = QLabel("模式：")
         self.label_mode = QLabel("编辑模式")
-        self.btn_mode = QPushButton('浏览模式')
+        self.btn_mode = QPushButton('浏览模式(E)')
         label2 = QLabel("比例尺：")
         self.scale_unit = QComboBox()
         self.scale_unit.addItems(['比例尺单位', 'm', 'km', 'degree', '其他'])
@@ -92,7 +93,7 @@ class MainWindow(QMainWindow):
         label3uButton = QPushButton("上方添加")
         label33Button = QPushButton("删除选中")
         self.listView = QListView()
-        self.show_all = QPushButton("显示所有")
+        self.show_all = QPushButton("显示所有(S)")
         btn_hide_map = QPushButton("隐藏地图")
 
         self.entry = QStringListModel()  # 创建mode
@@ -110,10 +111,12 @@ class MainWindow(QMainWindow):
         label3dButton.clicked.connect(lambda: self.addLine('down'))
         label33Button.clicked.connect(self.removeLine)
         self.btn_mode.clicked.connect(self.mode_change)
+        self.btn_mode.setShortcut('E')
         self.scaleTable.clicked[QModelIndex].connect(self.scale_clicked)
         # QObject.connect(self.scaleTable, pyqtSignal("customContextMenuRequested (const QPoint&)", slotFunc))
         self.listView.customContextMenuRequested[QPoint].connect(self.change_color_meun)
         self.show_all.clicked.connect(self.show_all_clicked)
+        self.show_all.setShortcut('S')
         btn_hide_map.clicked.connect(self.hide_map_clicked)
         self.scale_unit.currentIndexChanged.connect(self.scale_unit_clicked)
 
@@ -170,18 +173,25 @@ class MainWindow(QMainWindow):
             self.area.repaint()
 
     def show_all_clicked(self):
-        self.area.draw_mod = -99
-        self.area.repaint()
+        if self.area.draw_mod == -99:
+            self.area.draw_mod = self.show_all_temp
+            self.area.repaint()
+        else:
+            self.show_all_temp = self.area.draw_mod
+            self.area.draw_mod = -99
+            self.area.repaint()
 
     def mode_change(self):
         if self.edit_mode == 0:
             self.label_mode.setText('编辑模式')
-            self.btn_mode.setText('浏览模式')
+            self.btn_mode.setText('浏览模式(E)')
+            self.btn_mode.setShortcut('E')
             self.edit_mode = 1
             self.area.repaint()
         else:
             self.label_mode.setText('浏览模式')
-            self.btn_mode.setText('编辑模式')
+            self.btn_mode.setText('编辑模式(E)')
+            self.btn_mode.setShortcut('E')
             self.edit_mode = 0
             self.area.repaint()
 
@@ -245,7 +255,6 @@ class MainWindow(QMainWindow):
             self.scaleTable.setItem(0, 1, QTableWidgetItem(scaley_str))
             self.label_mode.setText('比例尺设置完成，等待编辑')
             self.change_saved = 0
-
 
     def show_scaleClicked(self):
         if self.scale[0] is None:
@@ -389,10 +398,17 @@ class MainWindow(QMainWindow):
                                 self.area.point_list_x = [points[0], points[1]]
                                 self.area.point_list_y = [points[2], points[3]]
                     else:
+                        minus = False
+                        if line[1] == '-':
+                            minus = True
+                            line = line[0]+line[2:]
                         parts = line.split('-')
                         rgba = eval(parts[1])
                         color = QColor(rgba[0], rgba[1], rgba[2], rgba[3])
-                        height = parts[0][1:]
+                        if minus:
+                            height = '-'+parts[0][1:]
+                        else:
+                            height = parts[0][1:]
                         line_type = parts[2]
                         points = get_point(parts[3][2:-3])
                         self.area.db[0].insert(i, height)
@@ -476,8 +492,9 @@ class MainWindow(QMainWindow):
                 self.area.db[1].pop(selected_index)
                 self.entry.setStringList(self.area.db[0])
 
-                self.area.draw_mod = -10
+                self.area.draw_mod = -99
                 self.change_saved = 0
+                self.area.repaint()
 
     def closeEvent(self, event):
         if self.change_saved == 1:
