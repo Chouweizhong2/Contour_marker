@@ -86,7 +86,7 @@ class MainWindow(QMainWindow):
         self.scaleTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.scaleTable.horizontalHeader().setVisible(False)
         label2Button = QPushButton("显示比例尺")
-        # label22Button = QPushButton("xy双比例尺")
+        label22Button = QPushButton("修改比例尺")
         # self.label_dgx = QLabel("未知")
         label3 = QLabel("等高线")
         label3dButton = QPushButton("下方添加")
@@ -105,8 +105,8 @@ class MainWindow(QMainWindow):
         self.listView.doubleClicked.connect(self.Dclickedlist)
         self.listView.setContextMenuPolicy(Qt.CustomContextMenu)
 
-        label2Button.clicked.connect(lambda: self.show_scaleClicked())
-        # label22Button.clicked.connect(lambda: self.scaleClicked('xy'))
+        label2Button.clicked.connect(lambda: self.show_scaleClicked('show'))
+        label22Button.clicked.connect(lambda: self.show_scaleClicked('edit'))
         label3uButton.clicked.connect(lambda: self.addLine('up'))
         label3dButton.clicked.connect(lambda: self.addLine('down'))
         label33Button.clicked.connect(self.removeLine)
@@ -130,7 +130,7 @@ class MainWindow(QMainWindow):
         # toolLayout.addWidget(self.label_dgx, 3, 2)
         toolLayout.addWidget(label2Button, 3, 3)
         toolLayout.addWidget(self.scale_unit, 4, 0, 1, 1)
-        # toolLayout.addWidget(label22Button, 4, 3)
+        toolLayout.addWidget(label22Button, 4, 3)
         toolLayout.addWidget(label3, 5, 0, 1, 1)
         toolLayout.addWidget(label3dButton, 5, 1, 1, 1)
         toolLayout.addWidget(label3uButton, 5, 2, 1, 1)
@@ -173,12 +173,11 @@ class MainWindow(QMainWindow):
             self.area.repaint()
 
     def show_all_clicked(self):
-        if self.area.draw_mod == -99:
-            self.area.draw_mod = self.show_all_temp
+        if self.area.draw_all == 1:
+            self.area.draw_all = 0
             self.area.repaint()
         else:
-            self.show_all_temp = self.area.draw_mod
-            self.area.draw_mod = -99
+            self.area.draw_all = 1
             self.area.repaint()
 
     def mode_change(self):
@@ -231,38 +230,55 @@ class MainWindow(QMainWindow):
 
     def scale_clicked(self, index):
         print('单击的是', -(index.row() + 2))
-        self.area.draw_mod = -(index.row() + 2)
-        if index.row() == 0:
-            self.label_mode.setText("比例尺X 请选择两个点")
-        if index.row() == 1:
-            self.label_mode.setText('比例尺Y 请选择两个点')
-        self.area.repaint()
+        if self.scale[index.row()] is None:
+            self.area.draw_mod = -(index.row() + 2)
+            if index.row() == 0:
+                self.label_mode.setText("比例尺X 请选择两个点")
+            if index.row() == 1:
+                self.label_mode.setText('比例尺Y 请选择两个点')
+            self.area.repaint()
 
     def scale_changed(self, which_changed):
         if which_changed == 'xok':
             print('into xok')
             i, okPressed = QInputDialog.getDouble(self, "比例尺X", "X真实距离:", 0, 0, 100000, 10)
             print('scale_changed point_list_x', self.area.point_list_x)
-            scalex_str = self.get_scal(self.area.point_list_x, i)
-            print('scale_changed scalex_str', scalex_str)
-            self.scale[0] = scalex_str
-            self.scaleTable.setItem(0, 0, QTableWidgetItem(scalex_str))
+           # scalex_str = self.get_scal(self.area.point_list_x, i)
+            print('scale_changed scalex_str', i)
+            self.scale[0] = str(i)
+            self.scaleTable.setItem(0, 0, QTableWidgetItem(self.scale[0]))
             self.change_saved = 0
         elif which_changed == 'yok':
             i, okPressed = QInputDialog.getDouble(self, "比例尺Y", "Y真实距离:", 0, 0, 100000, 10)
-            scaley_str = self.get_scal(self.area.point_list_y, i)
-            self.scale[1] = scaley_str
-            self.scaleTable.setItem(0, 1, QTableWidgetItem(scaley_str))
+            # scaley_str = self.get_scal(self.area.point_list_y, i)
+            self.scale[1] = str(i)
+            self.scaleTable.setItem(0, 1, QTableWidgetItem(self.scale[1]))
             self.label_mode.setText('比例尺设置完成，等待编辑')
             self.change_saved = 0
 
-    def show_scaleClicked(self):
-        if self.scale[0] is None:
-            QMessageBox.information(self, "警告", "请点击表格添加比例尺")
-            return None
-        self.area.draw_mod = -1
-        self.label_mode.setText('正在查看比例尺')
-        self.area.repaint()
+    def show_scaleClicked(self, do_type):
+        if do_type == 'show':
+            if self.scale[0] is None:
+                QMessageBox.information(self, "警告", "请点击表格添加比例尺")
+                return None
+            self.area.draw_mod = -1
+            self.label_mode.setText('正在查看比例尺')
+            self.area.repaint()
+        elif do_type == 'edit':
+            if self.scale[0] is None:
+                QMessageBox.information(self, "警告", "请直接点击表格添加比例尺")
+                return None
+            else:
+                reply = QMessageBox.question(self, '警告', '你确认要删除现有比例尺吗？',
+                                     QMessageBox.Yes, QMessageBox.No)
+                if reply == QMessageBox.No:
+                    return None
+                else:
+                    self.area.point_list_y = []
+                    self.area.point_list_x = []
+                    self.scale = [None, None]
+                    self.scaleTable.clearContents()
+
 
     def Dclickedlist(self, index):
         print("双击的是：" + str(index.row()))
@@ -401,12 +417,12 @@ class MainWindow(QMainWindow):
                         minus = False
                         if line[1] == '-':
                             minus = True
-                            line = line[0]+line[2:]
+                            line = line[0] + line[2:]
                         parts = line.split('-')
                         rgba = eval(parts[1])
                         color = QColor(rgba[0], rgba[1], rgba[2], rgba[3])
                         if minus:
-                            height = '-'+parts[0][1:]
+                            height = '-' + parts[0][1:]
                         else:
                             height = parts[0][1:]
                         line_type = parts[2]
@@ -417,7 +433,7 @@ class MainWindow(QMainWindow):
                         i += 1
 
             self.entry.setStringList(self.area.db[0])
-            self.area.draw_mod = -99
+            self.area.draw_mod = -1
             self.area.repaint()
 
         self.change_saved = 1
@@ -492,7 +508,7 @@ class MainWindow(QMainWindow):
                 self.area.db[1].pop(selected_index)
                 self.entry.setStringList(self.area.db[0])
 
-                self.area.draw_mod = -99
+                self.area.draw_mod = -1
                 self.change_saved = 0
                 self.area.repaint()
 

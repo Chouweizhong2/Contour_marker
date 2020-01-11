@@ -33,6 +33,7 @@ class MyDraw(QWidget):
         -10：等待
         '''
         self.draw_mod = -10
+        self.draw_all = 0
         self.point_list_x = []
         self.point_list_y = []
         self.db = None
@@ -62,14 +63,15 @@ class MyDraw(QWidget):
         elif self.draw_mod == -3:
             self.draw_line(painter, self.point_list_y)
         elif self.draw_mod >= 0:
-            self.draw_line(painter, self.db[1][self.draw_mod],
-                           self.db[2][self.draw_mod][0],
-                           self.db[2][self.draw_mod][1])
-        elif self.draw_mod == -99:
-            for i in range(len(self.db[0])):
-                self.draw_line(painter, self.db[1][i],
-                               self.db[2][i][0],
-                               self.db[2][i][1])
+            if self.draw_all == 1:
+                for i in range(len(self.db[0])):
+                    self.draw_line(painter, self.db[1][i],
+                                   self.db[2][i][0],
+                                   self.db[2][i][1])
+            else:
+                self.draw_line(painter, self.db[1][self.draw_mod],
+                               self.db[2][self.draw_mod][0],
+                               self.db[2][self.draw_mod][1])
 
     def draw_line(self, painter, show_points, color=QColor(0, 0, 0), pen_type='实线'):
         if show_points is None:
